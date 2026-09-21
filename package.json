@@ -1,0 +1,14 @@
+{
+  "name": "hisense-auto-cast",
+  "version": "0.1.0",
+  "private": true,
+  "description": "海信电视自动投屏客户端",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "electron": "44.4.3"
+  }
+}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src wss:">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>海信自动投屏</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>海信自动投屏</h1>
+    <p>电视：<span id="tv">读取配置中…</span></p>
+    <p>状态：<strong id="status" role="status" aria-live="polite">启动中</strong></p>
+    <p>协商参数：<span id="negotiated">—</span></p>
+    <div class="actions">
+      <button id="start" type="button">开始投屏</button>
+      <button id="stop" type="button">停止投屏</button>
+    </div>
+  </main>
+  <script src="../mirror/protocol.js"></script>
+  <script src="../mirror/media-recorder.js"></script>
+  <script src="../mirror/mirror-client.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

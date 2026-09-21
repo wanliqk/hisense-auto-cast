@@ -1,0 +1,10 @@
+html { color-scheme: light; font: 16px/1.5 system-ui, sans-serif; }
+body { margin: 0; background: #f4f6f8; color: #17212b; }
+main { padding: 24px; }
+h1 { font-size: 1.45rem; margin: 0 0 20px; }
+p { margin: 10px 0; }
+strong { color: #17604a; }
+.actions { display: flex; gap: 10px; margin-top: 28px; }
+button { border: 0; border-radius: 6px; padding: 9px 15px; background: #17604a; color: white; font: inherit; cursor: pointer; }
+button:disabled { opacity: .45; cursor: default; }
+#stop { background: #4d5963; }
