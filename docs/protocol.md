@@ -9,4 +9,4 @@
 5. `Feedback` 为 JSON 文本：`{timestamp, bufferedAmount, recorderState, cmd:"Feedback"}`。约每 3 秒发送一次；每 200 ms 检查发送缓冲。`bufferedAmount > videoBitsPerSecond/4` 时暂停录制，低于 1024 时恢复，并立即发送相应状态的 Feedback。
 6. 收到 `Finish` 时停止录制、屏幕流、定时器和 WebSocket。原网页在 45 秒未收到非空媒体 Blob 时停止；桌面客户端在此基础上自动重连。
 
-原网页还包含音频输出检测及静音振荡器；Windows 客户端在协商音频编码时使用 Electron 的系统音频 loopback，并在有音轨时启动同样的近静音振荡器。原网页的 `sendFinish(result)` 在正常停止流程中没有被调用，客户端也不主动增加这条消息。
+原网页还包含音频输出检测及静音振荡器；当前客户端只采集配置网址对应窗口的视频，因此 `Connect.format` 仅声明原候选列表里经 `MediaRecorder.isTypeSupported()` 检测通过的纯视频格式。原网页的 `sendFinish(result)` 在正常停止流程中没有被调用，客户端也不主动增加这条消息。

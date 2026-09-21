@@ -1,44 +1,29 @@
-const { desktopCapturer, screen } = require('electron');
+const { desktopCapturer } = require('electron');
 
-function setupDisplayCapture(session, window, config, log) {
-  const selectedId = () => String(config.displayId ?? screen.getPrimaryDisplay().id);
-
+function setupDisplayCapture(session, controlWindow, browserWindow, log) {
   session.setDisplayMediaRequestHandler(async (request, callback) => {
-    if (request.frame !== window.webContents.mainFrame) {
+    if (request.frame !== controlWindow.webContents.mainFrame || browserWindow.isDestroyed()) {
       callback(null);
       return;
     }
     try {
       const sources = await desktopCapturer.getSources({
-        types: ['screen'], thumbnailSize: { width: 0, height: 0 }
+        types: ['window'], thumbnailSize: { width: 0, height: 0 }
       });
-      const source = sources.find(item => item.display_id === selectedId());
-      if (!source) throw new Error(`未找到显示器 ${selectedId()}`);
-      log('info', 'screen-source', { displayId: source.display_id, sourceId: source.id });
-      callback({ video: source, ...(request.audioRequested ? { audio: 'loopback' } : {}) });
+      const sourceId = browserWindow.getMediaSourceId();
+      const windowHandle = sourceId.split(':')[1];
+      const source = sources.find(item => item.id.startsWith(`window:${windowHandle}:`));
+      if (!source) throw new Error(`未找到网页窗口 ${sourceId}`);
+      log('info', 'window-source', { sourceId });
+      callback({ video: source });
     } catch (error) {
-      log('error', 'screen-source-failed', { message: error.message });
+      log('error', 'window-source-failed', { message: error.message });
       callback(null);
     }
   });
 
-  let currentId = selectedId();
-  const notifyIfChanged = () => {
-    const nextId = selectedId();
-    if (nextId !== currentId) {
-      currentId = nextId;
-      log('info', 'primary-display-changed', { displayId: nextId });
-      if (!window.isDestroyed()) window.webContents.send('display-changed', nextId);
-    }
-  };
-  screen.on('display-added', notifyIfChanged);
-  screen.on('display-removed', notifyIfChanged);
-  screen.on('display-metrics-changed', notifyIfChanged);
-  window.on('closed', () => {
+  controlWindow.on('closed', () => {
     session.setDisplayMediaRequestHandler(null);
-    screen.off('display-added', notifyIfChanged);
-    screen.off('display-removed', notifyIfChanged);
-    screen.off('display-metrics-changed', notifyIfChanged);
   });
 }
 

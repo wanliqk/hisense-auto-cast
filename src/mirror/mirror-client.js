@@ -29,9 +29,9 @@ class MirrorClient {
     this.update('DISCONNECTED');
   }
 
-  restartForDisplay() {
+  restart() {
     if (!this.wanted) return;
-    this.log('info', 'display-restart');
+    this.log('info', 'connection-restart');
     this.cleanup();
     this.connect();
   }
@@ -54,7 +54,7 @@ class MirrorClient {
         if (!this.isCurrent(generation)) return;
         this.log('info', 'websocket-open');
         try {
-          const formats = CastProtocol.supportedFormats();
+          const formats = CastProtocol.supportedFormats().filter(format => !format.codec?.includes(','));
           const command = CastProtocol.connectCommand(this.deviceInfo(), formats);
           this.availableFormats = formats;
           socket.send(JSON.stringify(command));
@@ -114,7 +114,7 @@ class MirrorClient {
   async beginCapture(generation) {
     this.update('CAPTURING');
     try {
-      // 等上一代未完成的请求结算，避免同时捕获两次屏幕。
+      // 等上一代未完成的请求结算，避免同时捕获两次窗口。
       if (this.capturePending) await this.capturePending.catch(() => {});
       if (!this.isCurrent(generation)) return;
       const pending = CastMedia.capture(this.negotiated);
@@ -134,17 +134,16 @@ class MirrorClient {
         return;
       }
       this.stream = stream;
-      this.log('info', 'screen-captured', {
+      this.log('info', 'window-captured', {
         tracks: stream.getTracks().map(track => ({ kind: track.kind, settings: track.getSettings() }))
       });
       const videoTrack = stream.getVideoTracks()[0];
-      if (!videoTrack) throw new Error('屏幕流没有视频轨道');
-      videoTrack.onended = () => this.fail(generation, '屏幕捕获已结束');
+      if (!videoTrack) throw new Error('窗口流没有视频轨道');
+      videoTrack.onended = () => this.fail(generation, '窗口捕获已结束');
       const { recorder, mimeType, videoBitsPerSecond } = CastMedia.createRecorder(stream, this.negotiated);
       this.recorder = recorder;
       this.videoBitsPerSecond = videoBitsPerSecond;
       this.log('info', 'recorder-mime', { mimeType, videoBitsPerSecond });
-      this.silence = CastMedia.keepAudioActive(stream);
       recorder.ondataavailable = event => this.sendMedia(generation, event.data);
       recorder.onerror = event => this.fail(generation, `MediaRecorder error: ${event.error?.message ?? 'unknown'}`);
       recorder.start(1);
@@ -260,14 +259,6 @@ class MirrorClient {
       }
     }
     this.stream = null;
-    if (this.silence) {
-      try { this.silence.oscillator.stop(); } catch (error) {
-        this.log('error', 'oscillator-stop-failed', { message: error.message });
-      }
-      this.silence.context.close().catch(error =>
-        this.log('error', 'audio-context-close-failed', { message: error.message }));
-      this.silence = null;
-    }
     if (this.socket) {
       this.socket.onopen = this.socket.onmessage = this.socket.onerror = this.socket.onclose = null;
       try { this.socket.close(); } catch (error) {

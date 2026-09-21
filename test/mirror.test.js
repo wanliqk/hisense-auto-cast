@@ -1,8 +1,45 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { readFileSync } = require('node:fs');
+const { runInNewContext } = require('node:vm');
 const protocol = require('../src/mirror/protocol');
+const media = require('../src/mirror/media-recorder');
 const MirrorClient = require('../src/mirror/mirror-client');
 const { trustConfiguredTv } = require('../src/main/certificate');
+
+test('采集权限只返回指定网页窗口，拒绝其他网页', async () => {
+  const target = { id: 'window:7:1' };
+  const desktopCapturer = {
+    async getSources(options) {
+      assert.deepEqual(Array.from(options.types), ['window']);
+      return [{ id: 'window:8:0' }, target];
+    }
+  };
+  const loadedModule = { exports: {} };
+  runInNewContext(readFileSync(require.resolve('../src/main/display-manager'), 'utf8'), {
+    module: loadedModule, require: () => ({ desktopCapturer })
+  });
+  const frame = {};
+  const controlWindow = { webContents: { mainFrame: frame }, on() {} };
+  const browserWindow = { isDestroyed: () => false, getMediaSourceId: () => 'window:7:0' };
+  const session = { setDisplayMediaRequestHandler(handler) { this.handler = handler; } };
+  loadedModule.exports.setupDisplayCapture(session, controlWindow, browserWindow, () => {});
+  const allowed = await new Promise(resolve => session.handler({ frame }, resolve));
+  assert.equal(allowed.video, target);
+  const denied = await new Promise(resolve => session.handler({ frame: {} }, resolve));
+  assert.equal(denied, null);
+});
+
+test('窗口捕获只请求视频轨道', async () => {
+  global.CastProtocol = protocol;
+  Object.defineProperty(global, 'navigator', { configurable: true, value: {
+    mediaDevices: { getDisplayMedia: async constraints => constraints }
+  } });
+  const constraints = await media.capture({ resolution: 1080, frameRate: 60,
+    format: { video: 'webm', codec: 'vp8' } });
+  assert.equal(constraints.video.displaySurface, 'window');
+  assert.equal(constraints.audio, false);
+});
 
 test('证书例外仅限配置电视的自签名/名称错误', () => {
   const session = { setCertificateVerifyProc(handler) { this.handler = handler; } };
@@ -47,9 +84,10 @@ test('断线清理录制和定时器，只安排一次重连', async () => {
     resume() { this.state = 'recording'; }
   };
   global.WebSocket = FakeSocket;
-  global.MediaRecorder = { isTypeSupported: mime => mime === 'video/webm; codecs = vp8' };
+  global.MediaRecorder = { isTypeSupported: mime =>
+    ['video/webm; codecs = vp8', 'video/webm; codecs = vp8,opus'].includes(mime) };
   global.CastProtocol = protocol;
-  global.CastMedia = { capture: async () => stream, keepAudioActive: () => null, createRecorder: () =>
+  global.CastMedia = { capture: async () => stream, createRecorder: () =>
     ({ recorder, mimeType: 'video/webm; codecs = vp8', videoBitsPerSecond: 10000 }) };
   global.localStorage = { getItem: () => '100001' };
   Object.defineProperty(global, 'navigator', { configurable: true, value: { userAgent: 'Chrome/152.0 Windows NT 10.0' } });
@@ -61,6 +99,8 @@ test('断线清理录制和定时器，只安排一次重连', async () => {
   socket.readyState = 1;
   socket.onopen();
   assert.equal(JSON.parse(socket.sent[0]).cmd, 'Connect');
+  assert.deepEqual(JSON.parse(socket.sent[0]).format,
+    [{ video: 'webm', codec: 'vp8' }]);
   socket.onmessage({ data: JSON.stringify({ cmd: 'ConnectACK', result: 'OK', security: 0,
     protocolVersion: 1, resolution: 1080, frameRate: 60,
     format: { video: 'webm', codec: 'vp8' } }) });

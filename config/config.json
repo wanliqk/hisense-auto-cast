@@ -1,5 +1,7 @@
 {
   "tvHost": "192.168.110.215",
   "tvPort": 8765,
-  "displayId": null
+  "captureUrl": "https://example.com",
+  "windowWidth": 1280,
+  "windowHeight": 720
 }

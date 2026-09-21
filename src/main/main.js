@@ -12,10 +12,13 @@ const log = (level, event, details = {}) => {
 let config;
 try {
   config = JSON.parse(readFileSync(path.join(__dirname, '../../config/config.json'), 'utf8'));
+  const captureUrl = new URL(config.captureUrl);
   if (!isIP(config.tvHost) || !Number.isInteger(config.tvPort) ||
       config.tvPort < 1 || config.tvPort > 65535 ||
-      (config.displayId != null && !Number.isInteger(config.displayId))) {
-    throw new Error('tvHost 必须是 IP，tvPort 必须是有效端口，displayId 必须是整数或 null');
+      !['http:', 'https:'].includes(captureUrl.protocol) ||
+      !Number.isInteger(config.windowWidth) || config.windowWidth < 320 ||
+      !Number.isInteger(config.windowHeight) || config.windowHeight < 240) {
+    throw new Error('请检查 tvHost、tvPort、captureUrl、windowWidth 和 windowHeight');
   }
 } catch (error) {
   log('error', 'config-failed', { message: error.message });
@@ -24,11 +27,19 @@ try {
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
-} else app.whenReady().then(() => {
-  log('info', 'app-start', { tvHost: config.tvHost, tvPort: config.tvPort });
+} else app.whenReady().then(async () => {
+  log('info', 'app-start', { tvHost: config.tvHost, tvPort: config.tvPort,
+    captureOrigin: new URL(config.captureUrl).origin });
   trustConfiguredTv(session.defaultSession, config.tvHost, log);
+  const browserWindow = new BrowserWindow({
+    title: '投屏网页', width: config.windowWidth, height: config.windowHeight,
+    autoHideMenuBar: true,
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true }
+  });
+  browserWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  browserWindow.on('closed', () => app.quit());
   const window = new BrowserWindow({
-    width: 420, height: 330, autoHideMenuBar: true,
+    width: 420, height: 350, autoHideMenuBar: true, show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, nodeIntegration: false, sandbox: true
@@ -43,12 +54,17 @@ if (!app.requestSingleInstanceLock()) {
       log(level, name, details);
     }
   });
-  setupDisplayCapture(session.defaultSession, window, config, log);
-  window.loadFile(path.join(__dirname, '../renderer/index.html')).catch(error => {
+  setupDisplayCapture(session.defaultSession, window, browserWindow, log);
+  window.on('closed', () => app.quit());
+  try {
+    await browserWindow.loadURL(config.captureUrl);
+    log('info', 'browser-window-loaded', { origin: new URL(browserWindow.webContents.getURL()).origin });
+    await window.loadFile(path.join(__dirname, '../renderer/index.html'));
+    window.show();
+  } catch (error) {
     log('error', 'window-load-failed', { message: error.message });
     app.quit();
-  });
-  window.on('closed', () => app.quit());
+  }
 }).catch(error => {
   log('error', 'app-start-failed', { message: error.message });
   app.quit();
