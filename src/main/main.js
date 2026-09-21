@@ -1,5 +1,5 @@
 const { app, BrowserWindow, ipcMain, session } = require('electron');
-const { readFileSync } = require('node:fs');
+const { existsSync, readFileSync } = require('node:fs');
 const { isIP } = require('node:net');
 const path = require('node:path');
 const { trustConfiguredTv } = require('./certificate');
@@ -11,7 +11,10 @@ const log = (level, event, details = {}) => {
 
 let config;
 try {
-  config = JSON.parse(readFileSync(path.join(__dirname, '../../config/config.json'), 'utf8'));
+  const externalConfig = path.join(path.dirname(process.execPath), 'config/config.json');
+  const configFile = existsSync(externalConfig)
+    ? externalConfig : path.join(__dirname, '../../config/config.json');
+  config = JSON.parse(readFileSync(configFile, 'utf8'));
   const captureUrl = new URL(config.captureUrl);
   if (!isIP(config.tvHost) || !Number.isInteger(config.tvPort) ||
       config.tvPort < 1 || config.tvPort > 65535 ||

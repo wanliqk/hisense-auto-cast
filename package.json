@@ -6,7 +6,8 @@
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node --test"
+    "test": "node --test",
+    "package:win": "node scripts/package-win.js"
   },
   "devDependencies": {
     "electron": "44.4.3"
