@@ -2,6 +2,8 @@
   "tvHost": "192.168.110.215",
   "tvPort": 8765,
   "captureUrl": "https://example.com",
+  "autoClickFullscreen": false,
+  "fullscreenButtonSelector": "",
   "windowWidth": 1280,
   "windowHeight": 720
 }

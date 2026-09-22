@@ -4,6 +4,7 @@ const { isIP } = require('node:net');
 const path = require('node:path');
 const { trustConfiguredTv } = require('./certificate');
 const { setupDisplayCapture } = require('./display-manager');
+const clickFullscreenButton = require('./auto-click-fullscreen');
 
 const log = (level, event, details = {}) => {
   console.log(JSON.stringify({ time: new Date().toISOString(), level, event, ...details }));
@@ -20,8 +21,11 @@ try {
       config.tvPort < 1 || config.tvPort > 65535 ||
       !['http:', 'https:'].includes(captureUrl.protocol) ||
       !Number.isInteger(config.windowWidth) || config.windowWidth < 320 ||
-      !Number.isInteger(config.windowHeight) || config.windowHeight < 240) {
-    throw new Error('请检查 tvHost、tvPort、captureUrl、windowWidth 和 windowHeight');
+      !Number.isInteger(config.windowHeight) || config.windowHeight < 240 ||
+      (config.autoClickFullscreen !== undefined && typeof config.autoClickFullscreen !== 'boolean') ||
+      (config.autoClickFullscreen && (typeof config.fullscreenButtonSelector !== 'string' ||
+        !config.fullscreenButtonSelector.trim()))) {
+    throw new Error('请检查 tvHost、tvPort、captureUrl、windowWidth、windowHeight、autoClickFullscreen 和 fullscreenButtonSelector');
   }
 } catch (error) {
   log('error', 'config-failed', { message: error.message });
@@ -63,6 +67,14 @@ if (!app.requestSingleInstanceLock()) {
   try {
     await browserWindow.loadURL(config.captureUrl);
     log('info', 'browser-window-loaded', { origin: new URL(browserWindow.webContents.getURL()).origin });
+    if (config.autoClickFullscreen) {
+      try {
+        const clicked = await clickFullscreenButton(browserWindow.webContents, config.fullscreenButtonSelector);
+        log(clicked ? 'info' : 'warn', clicked ? 'fullscreen-button-clicked' : 'fullscreen-button-not-found');
+      } catch (error) {
+        log('warn', 'fullscreen-button-click-failed', { message: error.message });
+      }
+    }
     await window.loadFile(path.join(__dirname, '../renderer/index.html'));
     window.show();
   } catch (error) {

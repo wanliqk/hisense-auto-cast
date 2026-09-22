@@ -13,7 +13,8 @@ if (path.dirname(output) !== dist) throw new Error('打包目录不在 dist 中'
 const electronExe = require('electron');
 if (!fs.existsSync(electronExe)) throw new Error('Electron 运行文件未安装');
 const configOutput = path.join(output, 'config', 'config.json');
-const previousConfig = fs.existsSync(configOutput) ? fs.readFileSync(configOutput) : null;
+const previousConfig = fs.existsSync(configOutput)
+  ? JSON.parse(fs.readFileSync(configOutput, 'utf8')) : {};
 fs.rmSync(output, { recursive: true, force: true });
 fs.cpSync(path.dirname(electronExe), output, { recursive: true });
 fs.renameSync(path.join(output, 'electron.exe'), path.join(output, 'HisenseAutoCast.exe'));
@@ -23,7 +24,7 @@ fs.mkdirSync(appDir, { recursive: true });
 fs.cpSync(path.join(root, 'src'), path.join(appDir, 'src'), { recursive: true });
 fs.copyFileSync(path.join(root, 'package.json'), path.join(appDir, 'package.json'));
 fs.mkdirSync(path.join(output, 'config'));
-if (previousConfig) fs.writeFileSync(configOutput, previousConfig);
-else fs.copyFileSync(path.join(root, 'config', 'config.json'), configOutput);
+const defaultConfig = JSON.parse(fs.readFileSync(path.join(root, 'config', 'config.json'), 'utf8'));
+fs.writeFileSync(configOutput, `${JSON.stringify({ ...defaultConfig, ...previousConfig }, null, 2)}\n`);
 fs.copyFileSync(path.join(root, 'README.md'), path.join(output, 'README.md'));
 console.log(`打包完成：${path.join(output, 'HisenseAutoCast.exe')}`);

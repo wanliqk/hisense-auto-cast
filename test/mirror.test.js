@@ -6,6 +6,25 @@ const protocol = require('../src/mirror/protocol');
 const media = require('../src/mirror/media-recorder');
 const MirrorClient = require('../src/mirror/mirror-client');
 const { trustConfiguredTv } = require('../src/main/certificate');
+const clickFullscreenButton = require('../src/main/auto-click-fullscreen');
+
+test('按配置选择器点击网页全屏按钮', async () => {
+  const selector = 'button[data-title="全屏"]';
+  let clicks = 0;
+  const webContents = { executeJavaScript(code, userGesture) {
+    assert.equal(userGesture, true);
+    return Promise.resolve(runInNewContext(code, { document: { querySelector(value) {
+      assert.equal(value, selector);
+      return { click() { clicks++; } };
+    } } }));
+  } };
+  assert.equal(await clickFullscreenButton(webContents, selector), true);
+  assert.equal(clicks, 1);
+  webContents.executeJavaScript = code => Promise.resolve(runInNewContext(code, {
+    document: { querySelector: () => null }
+  }));
+  assert.equal(await clickFullscreenButton(webContents, selector), false);
+});
 
 test('采集权限只返回指定网页窗口，拒绝其他网页', async () => {
   const target = { id: 'window:7:1' };
