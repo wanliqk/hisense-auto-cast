@@ -42,6 +42,7 @@ if (!app.requestSingleInstanceLock()) {
   browserWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   browserWindow.on('closed', () => app.quit());
   const window = new BrowserWindow({
+    parent: browserWindow,
     width: 420, height: 350, autoHideMenuBar: true, show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
